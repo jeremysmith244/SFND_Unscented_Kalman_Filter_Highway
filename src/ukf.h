@@ -60,6 +60,19 @@ class UKF {
   // predicted sigma points matrix
   Eigen::MatrixXd Xsig_pred_;
 
+  // meaasurement projection vector
+  Eigen::MatrixXd H_;
+  Eigen::MatrixXd Ht_ = Eigen::MatrixXd(5,2);
+
+  // identity matrix
+  Eigen::MatrixXd I_;
+
+  // Laser noise matrix
+  Eigen::MatrixXd R_laser_;
+
+  // Radar noise matrix
+  Eigen::MatrixXd R_radar_;
+
   // time when the state is true, in us
   long long time_us_;
 
