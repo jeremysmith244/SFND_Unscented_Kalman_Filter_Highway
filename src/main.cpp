@@ -42,6 +42,13 @@ int main(int argc, char** argv)
 		viewer->spinOnce(1000/frame_per_sec);
 		frame_count++;
 		time_us = 1000000*frame_count/frame_per_sec;
+
+		// save summary data
+		myFile << frame_count << ",";
+		for (auto it=highway.traffic.begin();it!=highway.traffic.end();++it){
+			myFile << it->ukf.nis_ << ",";
+		}
+		myFile << endl;
 	}
 	myFile.close();
 

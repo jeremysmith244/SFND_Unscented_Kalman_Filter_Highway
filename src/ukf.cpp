@@ -12,62 +12,26 @@ using namespace std;
  * Initializes Unscented Kalman filter
  */
 UKF::UKF() {
-  // if this is false, laser measurements will be ignored (except during init)
-  use_laser_ = true;
 
-  // if this is false, radar measurements will be ignored (except during init)
-  use_radar_ = true;
-
-  // false until first measurement is taken
-  is_initialized_ = false;
-
-  // initial state vector
-  x_ = VectorXd(5);
-
-  // initial covariance matrix
-  P_ = MatrixXd(5, 5);
-
-  // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 3;
-
-  // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 1;
-  
-  /**
-   * DO NOT MODIFY measurement noise values below.
-   * These are provided by the sensor manufacturer.
-   */
-
-  // Laser measurement noise standard deviation position1 in m
-  std_laspx_ = 0.15;
-
-  // Laser measurement noise standard deviation position2 in m
-  std_laspy_ = 0.15;
-
-  // Radar measurement noise standard deviation radius in m
-  std_radr_ = 0.3;
-
-  // Radar measurement noise standard deviation angle in rad
-  std_radphi_ = 0.03;
-
-  // Radar measurement noise standard deviation radius change in m/s
-  std_radrd_ = 0.3;
-  
-  /**
-   * End DO NOT MODIFY section for measurement noise values 
-   */
-
-  // State dimension for CTR model
-  n_x_ = 5;
-
-  // Augmented state dimension for CTR model
-  n_aug_ = 7;
-
-  // Lambda governs sigma point spreading parameter
-  lambda_ = 3 - n_aug_;
+  use_laser_ = true; // if this is false, laser measurements will be ignored (except during init)
+  use_radar_ = true;  // if this is false, radar measurements will be ignored (except during init)
+  is_initialized_ = false; // false until first measurement is taken
+  x_ = VectorXd(5); // initial state vector
+  P_ = MatrixXd(5, 5); // initial covariance matrix
+  std_a_ = 3; // Process noise standard deviation longitudinal acceleration in m/s^2
+  std_yawdd_ = 1;  // Process noise standard deviation yaw acceleration in rad/s^2
+  std_laspx_ = 0.15; // Laser measurement noise standard deviation position1 in m
+  std_laspy_ = 0.15; // Laser measurement noise standard deviation position2 in m
+  std_radr_ = 0.3; // Radar measurement noise standard deviation radius in m
+  std_radphi_ = 0.03; // Radar measurement noise standard deviation angle in rad
+  std_radrd_ = 0.3; // Radar measurement noise standard deviation radius change in m/s
+  n_x_ = 5; // State dimension for CTR model
+  n_aug_ = 7; // Augmented state dimension for CTR model
+  lambda_ = 3 - n_aug_; // Lambda governs sigma point spreading parameter
 
   // laser measurement matrix
   H_ = Eigen::MatrixXd(2,5);
+  Ht_ = Eigen::MatrixXd(5,2);
   H_ << 1.0, 0.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0, 0.0;
   Ht_ = H_.transpose();
@@ -75,14 +39,14 @@ UKF::UKF() {
   // noise matrices
   R_laser_ = Eigen::MatrixXd(2,2);
   R_laser_ << std_laspx_*std_laspx_, 0.0,
-        0.0, std_laspy_*std_laspy_;
+              0.0, std_laspy_*std_laspy_;
   
   R_radar_ = Eigen::MatrixXd(3,3);
   R_radar_ <<  std_radr_*std_radr_, 0, 0,
                0, std_radphi_*std_radphi_, 0,
                0, 0,std_radrd_*std_radrd_;
 
-  // identity matrix for laser Kalman
+  // identity matrix for regular Kalman
   I_ = MatrixXd::Identity(n_x_, n_x_);
 
   // weights for unscented predictions
@@ -92,23 +56,13 @@ UKF::UKF() {
     weights_(i) = 1/(2*(lambda_+n_aug_));
   }
 
-  // looping variable initialization
+  // Initialize prediciton matrix
   Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
-  MatrixXd Tc = MatrixXd(n_x_, 3);
-
-  /**
-   * TODO: Complete the initialization. See ukf.h for other member properties.
-   * Hint: one or more values initialized above might be wildly off...
-   */
 }
 
 UKF::~UKF() {}
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Make sure you switch between lidar and radar
-   * measurements.
-   */
 
   if (!is_initialized_ && meas_package.sensor_type_ == MeasurementPackage::SensorType::LASER) {
     // set the state with the initial location and zero velocity
@@ -118,6 +72,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
           0,
           0;
 
+    // guesstimate these by checking, assume some correlation between turning radius and its acceleration
     P_ <<  0.25, 0.0, 0.0, 0.0, 0.0,
            0.0, 0.25, 0.0, 0.0, 0.0,
            0.0, 0.0, 0.25, 0.0, 0.0,
@@ -127,6 +82,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     previous_timestamp_ = meas_package.timestamp_;
     is_initialized_ = true;
     return;
+
   } else if (!is_initialized_ && meas_package.sensor_type_ == MeasurementPackage::SensorType::RADAR) {
     // set the state with the initial location and zero velocity
     x_ << meas_package.raw_measurements_[0]*cos(meas_package.raw_measurements_[1]), 
@@ -135,6 +91,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
           0,
           0;
 
+    // guesstimate these by checking, assume some correlation between turning radius and its acceleration
     P_ <<  0.25, 0.0, 0.0, 0.0, 0.0,
            0.0, 0.25, 0.0, 0.0, 0.0,
            0.0, 0.0, 0.25, 0.0, 0.0,
@@ -144,6 +101,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     previous_timestamp_ = meas_package.timestamp_;
     is_initialized_ = true;
     return;
+
   } else {
     float dt = (meas_package.timestamp_ - previous_timestamp_) / 1000000;
     previous_timestamp_ = meas_package.timestamp_;
@@ -160,11 +118,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 }
 
 void UKF::Prediction(double delta_t) {
-  /**
-   * TODO: Complete this function! Estimate the object's location. 
-   * Modify the state vector, x_. Predict sigma points, the state, 
-   * and the state covariance matrix.
-   */
 
   // create augmented mean vector
   VectorXd x_aug = VectorXd(n_aug_);
@@ -235,13 +188,8 @@ void UKF::Prediction(double delta_t) {
 }
 
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Use lidar data to update the belief 
-   * about the object's position. Modify the state vector, x_, and 
-   * covariance, P_.
-   * You can also calculate the lidar NIS, if desired.
-   */
 
+  // map prediction to measurement space using standard (linear) Kalman filter
   VectorXd z_laser = H_ * x_;
   VectorXd y = meas_package.raw_measurements_ - z_laser;
   MatrixXd S_laser = H_ * P_ * Ht_ + R_laser_;
@@ -252,15 +200,12 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //new estimate
   x_ = x_ + (K_laser * y);
   P_ = (I_ - K_laser * H_) * P_;
+
+  // NIS calculation
+  nis_ = y.transpose()*Si*y;
 }
 
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Use radar data to update the belief 
-   * about the object's position. Modify the state vector, x_, and 
-   * covariance, P_.
-   * You can also calculate the radar NIS, if desired.
-   */
 
   // n_z is three for radar
   int n_z = 3;
@@ -328,7 +273,13 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
       Tc += weights_(i)*x_diff*z_diff.transpose();
   }
 
+  // Kalman matrix
   MatrixXd K = Tc*S.inverse();
+
+  // new prediction and covariance
   x_ = x_ + K*(meas_package.raw_measurements_ - z_pred);
   P_ = P_ - K*S*K.transpose();
+
+  // nis calculation
+  nis_ = (meas_package.raw_measurements_ - z_pred).transpose()*S.inverse()*(meas_package.raw_measurements_ - z_pred);
 }
